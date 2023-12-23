@@ -1,4 +1,5 @@
 import io.github.cdimascio.dotenv.Dotenv;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.events.Event;
@@ -109,7 +110,7 @@ public class CommandManager extends ListenerAdapter {
         OptionData sendAsBot = new OptionData(OptionType.BOOLEAN, "send_as_bot", "Do you want the message to be from you or the bot?", false);
         OptionData mention = new OptionData(OptionType.MENTIONABLE, "mention", "The group you want to notify with the message.", false);
         OptionData attachment = new OptionData(OptionType.ATTACHMENT, "attachment", "The image / gif in the embed.", false);
-        commandData.add(Commands.slash("announce", "Sends an announcement to a specified channel.").setDefaultPermissions(DefaultMemberPermissions.DISABLED).addOptions(channel, message, sendAsBot, mention, attachment));
+        commandData.add(Commands.slash("announce", "Sends an announcement to a specified channel.").setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.VIEW_AUDIT_LOGS)).addOptions(channel, message, sendAsBot, mention, attachment));
         commandData.add(Commands.slash("role_assigner", "An announcement that should only be made once. Lets people choose roles.").setDefaultPermissions(DefaultMemberPermissions.DISABLED).addOptions(channel, message, sendAsBot, mention, attachment));
         commandData.add(Commands.slash("metrics", "Creates a message that displays the current game metrics. Should only be made once.").setDefaultPermissions(DefaultMemberPermissions.DISABLED).addOptions(channel));
         commandData.add(Commands.slash("delete_metrics", "Deletes the metrics message and the messageId2.txt file so you can repost it.").setDefaultPermissions(DefaultMemberPermissions.DISABLED));
