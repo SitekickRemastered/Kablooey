@@ -106,11 +106,13 @@ public class CommandManager extends ListenerAdapter {
 
         List<CommandData> commandData = new ArrayList<>();
         OptionData channel = new OptionData(OptionType.CHANNEL, "channel", "The channel the message will appear in.", true).setChannelTypes(ChannelType.TEXT, ChannelType.NEWS, ChannelType.GUILD_PUBLIC_THREAD, ChannelType.GUILD_NEWS_THREAD, ChannelType.FORUM);
+        OptionData messageId = new OptionData(OptionType.STRING, "message_id", "The ID of the message to edit.", true);
         OptionData message = new OptionData(OptionType.STRING, "message", "The message you want to send.", false);
         OptionData sendAsBot = new OptionData(OptionType.BOOLEAN, "send_as_bot", "Do you want the message to be from you or the bot?", false);
         OptionData mention = new OptionData(OptionType.MENTIONABLE, "mention", "The group you want to notify with the message.", false);
         OptionData attachment = new OptionData(OptionType.ATTACHMENT, "attachment", "The image / gif in the embed.", false);
         commandData.add(Commands.slash("announce", "Sends an announcement to a specified channel.").setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.VIEW_AUDIT_LOGS)).addOptions(channel, message, sendAsBot, mention, attachment));
+        commandData.add(Commands.slash("edit_announcement", "Edits an announcement.").setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.VIEW_AUDIT_LOGS)).addOptions(channel, messageId, message, attachment));
         commandData.add(Commands.slash("role_assigner", "An announcement that should only be made once. Lets people choose roles.").setDefaultPermissions(DefaultMemberPermissions.DISABLED).addOptions(channel, message, sendAsBot, mention, attachment));
         commandData.add(Commands.slash("metrics", "Creates a message that displays the current game metrics. Should only be made once.").setDefaultPermissions(DefaultMemberPermissions.DISABLED).addOptions(channel));
         commandData.add(Commands.slash("delete_metrics", "Deletes the metrics message and the messageId2.txt file so you can repost it.").setDefaultPermissions(DefaultMemberPermissions.DISABLED));
@@ -263,6 +265,12 @@ public class CommandManager extends ListenerAdapter {
             IMentionable mention = e.getOption("mention") == null ? null : e.getOption("mention").getAsMentionable();
             Message.Attachment attachment = e.getOption("attachment") == null ? null : e.getOption("attachment").getAsAttachment();
             Announce.announceCommand(e, command, e.getOption("channel").getAsChannel(), message, sendAsBot, mention, attachment, getRole);
+        }
+        if (command.equals("edit_announcement")){
+            String messageId = e.getOption("message_id") == null ? null : e.getOption("message_id").getAsString();
+            String message = e.getOption("message") == null ? null : e.getOption("message").getAsString();
+            Message.Attachment attachment = e.getOption("attachment") == null ? null : e.getOption("attachment").getAsAttachment();
+            Announce.editAnnouncement(e, e.getOption("channel").getAsChannel(), messageId, message, attachment);
         }
 
         // If the user types the command /metrics, we go to the metricsCommand function
