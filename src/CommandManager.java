@@ -15,7 +15,9 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.jetbrains.annotations.NotNull;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
@@ -24,6 +26,8 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.NameValuePair;
 import org.apache.hc.core5.http.message.BasicNameValuePair;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.*;
 import java.net.URL;
@@ -43,6 +47,8 @@ public class CommandManager extends ListenerAdapter {
     public static String roleAnnounceMessageChannel = "";
     public static String metricsMessageChannel = "";
     public static String metricsMessageId = "";
+    public static ArrayList<String> rankList = new ArrayList<>() { { add("None"); add("Bronze"); add("Silver"); add("Gold"); add("Amethyst"); add("Onyx"); add("Diamond"); }
+    };
 
     //These are for checking Kablooey's status
     String statusURL = dotenv.get("KABLOOEY_PING_LINK");
@@ -92,9 +98,13 @@ public class CommandManager extends ListenerAdapter {
             }, 0, 60, TimeUnit.SECONDS);
         }
 
+        // Nitro and Rank / Name change stuff.
         scheduler.scheduleAtFixedRate(() -> {
             try { sendNames(e); }
             catch (IOException ignored) { }
+
+            try { updateUsers(e); }
+            catch (IOException | ParseException ex) { throw new RuntimeException(ex); }
         }, 0, 1, TimeUnit.HOURS);
     }
 
@@ -241,14 +251,79 @@ public class CommandManager extends ListenerAdapter {
 
         // Send off the information to the server.
         CloseableHttpClient httpclient = HttpClients.createDefault();
-        HttpPost httppost = new HttpPost("https://game.sitekickremastered.com/admin/update_discord_nitro");
+        HttpPost httppost = new HttpPost(dotenv.get("NITRO_LINK"));
         List<NameValuePair> params = new ArrayList<>(2);
-        params.add(new BasicNameValuePair("token", "3e83b13d99bf0de6c6bde5ac5ca4ae687a3d46db"));
+        params.add(new BasicNameValuePair("token", dotenv.get("POST_TOKEN")));
         params.add(new BasicNameValuePair("ids", boosters));
         httppost.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
         CloseableHttpResponse response = httpclient.execute(httppost);
         httpclient.close();
         response.close();
+    }
+
+    public void updateUsers(Event e) throws IOException, ParseException {
+
+        // Get the Sitekick channel
+        Guild SK = e.getJDA().getGuildById("603580736250970144");
+
+        // Set up the first post
+        CloseableHttpClient httpclient = HttpClients.createDefault();
+        HttpPost httppost = new HttpPost(dotenv.get("VERIFIED_MEMBERS_LINK"));
+        List<NameValuePair> params = new ArrayList<>(2);
+        params.add(new BasicNameValuePair("token", dotenv.get("POST_TOKEN")));
+        httppost.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
+        CloseableHttpResponse response = httpclient.execute(httppost);
+        HttpEntity entity = response.getEntity();
+        JSONObject json = new JSONObject(EntityUtils.toString(entity, StandardCharsets.UTF_8));
+        JSONArray players = json.getJSONArray("players");
+
+        // Go through every page starting at 1 since we already got page 0 from the first thing
+        for (int i = 1; i < json.getInt("totalPages"); i++){
+
+            // Go through every player on this page.
+            for (int j = 0; j < json.getInt("resultsPerPage"); j++){
+
+                // Get the member from the json and check if it's they're still in the discord
+                JSONObject member = players.getJSONObject(j);
+                Member m = SK.getMemberById(member.get("discordId").toString());
+
+                if (m == null)
+                    continue;
+
+                //Set Discord name to name in game
+                if (Objects.equals(m.getNickname(), member.get("username").toString())){
+                    m.modifyNickname(member.get("username").toString()).queue();
+                }
+
+                // Set Rank Stuff
+                if (!member.get("rank").toString().equals("None")){
+                    Role gameRank = SK.getRolesByName(member.get("rank").toString(), true).getFirst();
+
+                    // If the player currently has any of the roles in rankList, remove that rank
+                    if (m.getRoles().stream().anyMatch(element -> rankList.contains(element.getName()))){
+                        if (!m.getRoles().contains(gameRank)){
+                            m.getRoles().removeIf(r -> rankList.contains(r.getName()));
+                        }
+                    }
+                    // Add their current rank from the game to the discord
+                    SK.addRoleToMember(m, gameRank).queue();
+                }
+            }
+
+            // Do another POST request for the next page.
+            httppost = new HttpPost(dotenv.get("VERIFIED_MEMBERS_LINK") + "?page=" + i);
+            params = new ArrayList<>(2);
+            params.add(new BasicNameValuePair("token", dotenv.get("POST_TOKEN")));
+            httppost.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
+            response = httpclient.execute(httppost);
+            entity = response.getEntity();
+            json = new JSONObject(EntityUtils.toString(entity, StandardCharsets.UTF_8));
+            players = json.getJSONArray("players");
+        }
+
+        httpclient.close();
+        response.close();
+        entity.close();
     }
 
     /** The hub for all slash commands for Kablooey.
