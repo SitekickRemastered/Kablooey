@@ -5,6 +5,8 @@
 
 - Keeps track of and updates live metrics message
 
+- Adds rank role to verified members and updates usernames
+
 ---
 
 # Commands
@@ -16,7 +18,7 @@
 >/announce #channel [message] [send_as_bot] Optional: [mentions] [attachments]
 >
 **edit_announcement** - *Edits a message embed.*
->/edit_announcement #channel [messageId] [message] Optional: [attachments]
+>/edit_announcement [messageId] [message] Optional: [attachments]
 >
 **role_assigner** - *An announcement that should only be made once. Lets people choose roles for messages*
 > /role_assigner #channel Optional: [message] [send_as_bot] Optional: [mentions] [attachments]

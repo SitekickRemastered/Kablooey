@@ -3,20 +3,14 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ParseException;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +28,7 @@ public class Metrics {
         createEmbed(tempEmbed);
 
         // If the message already exists, alert the user and return
-        if (!CommandManager.metricsMessageId.equals("")) {
+        if (!CommandManager.metricsMessageId.isEmpty()) {
             e.reply("Hey, " + e.getUser().getAsMention() + "! This message already exists! Its ID is: " + CommandManager.metricsMessageId).setEphemeral(true).queue();
             return;
         }
@@ -48,7 +42,7 @@ public class Metrics {
                 CommandManager.metricsMessageId = m.getId();
 
                 scheduler.scheduleAtFixedRate(() -> {
-                    if (!CommandManager.metricsMessageChannel.equals("")) {
+                    if (!CommandManager.metricsMessageChannel.isEmpty()) {
                         try {
                             Metrics.updateMetrics(m);
                         } catch (IOException | ParseException ex) {
@@ -69,7 +63,7 @@ public class Metrics {
     public static void updateMetrics(ReadyEvent e) throws IOException, ParseException {
 
         // Get the message and create a new embed with the new information.
-        e.getJDA().getTextChannelById(CommandManager.metricsMessageChannel).retrieveMessageById(CommandManager.metricsMessageId).queue(m -> {
+        Objects.requireNonNull(e.getJDA().getTextChannelById(CommandManager.metricsMessageChannel)).retrieveMessageById(CommandManager.metricsMessageId).queue(m -> {
             EmbedBuilder tempEmbed = new EmbedBuilder();
             try { createEmbed(tempEmbed); }
             catch (IOException | ParseException ex) {
@@ -102,7 +96,7 @@ public class Metrics {
         eb.setTimestamp(new Date().toInstant()); //Set up the date
 
         // Get the metrics information from the POSTRequest function
-        JSONObject json = postRequest("https://game.sitekickremastered.com/metrics/generic?q=online_players,daily_online_players,daily_registrations,total_players,total_chips");
+        JSONObject json = CommandManager.postRequest("https://game.sitekickremastered.com/metrics/generic?q=online_players,daily_online_players,daily_registrations,total_players,total_chips", new ArrayList<>(), "Failed to retrieve metrics from POST");
 
         // On success, edit the metrics
         if (json != null){
@@ -113,39 +107,13 @@ public class Metrics {
                             "\n**Total Active Chips:** " + json.get("total_chips") +
                             "\n\nBrought to you by me <:kablrury:1036832644631117954>"
             );
-            System.out.println("Updated Metrics Successfully.");
+            System.out.println(Instant.now() + " Updated Metrics Successfully.");
         }
         // On fail, alert that metrics is broken.
-        else eb.setDescription("I'm unable to retrieve metrics at this time <:nootsad:747467956308410461>");
-    }
-
-    /** Sends a post request to a link. Since the post request has no parameters / arguments, we just need to get the response.
-     *  @param link - The link that the POST request will be sent to.
-     */
-    public static JSONObject postRequest(String link) throws IOException, ParseException {
-
-        // Setup the post request and send it.
-        CloseableHttpClient httpclient = HttpClients.createDefault();
-        HttpPost httppost = new HttpPost(link);
-        httppost.setEntity(new UrlEncodedFormEntity(new ArrayList<>(), StandardCharsets.UTF_8));
-        CloseableHttpResponse response = httpclient.execute(httppost);
-        JSONObject json = null;
-
-        // If we get the code 200 back (everything went OK), then populate the json variable with the information
-        if (response.getCode() == 200){
-            HttpEntity entity = response.getEntity();
-            json = new JSONObject(EntityUtils.toString(entity, StandardCharsets.UTF_8));
-            entity.close();
+        else {
+            eb.setDescription("I'm unable to retrieve metrics at this time <:nootsad:747467956308410461>");
+            System.out.println(Instant.now() + " failed to get the Metrics from the POST.");
         }
-
-        // Otherwise, print to the screen the code / why and where the request failed.
-        else System.out.println("ERROR " + response.getCode() +": Failed to retrieve metrics from POST");
-
-        httpclient.close();
-        response.close();
-
-        return json;
     }
-
 
 }

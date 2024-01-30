@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Objects;
 
 public class Announce {
 
@@ -37,7 +38,7 @@ public class Announce {
 
         //If the user does not want to send it as a bot, then it will display their name and pfp
         if (!sendAsBot) {
-            eb.setAuthor(e.getMember().getUser().getEffectiveName(), null, e.getMember().getUser().getAvatarUrl());
+            eb.setAuthor(Objects.requireNonNull(e.getMember()).getUser().getEffectiveName(), null, e.getMember().getUser().getAvatarUrl());
             eb.setColor(0x660199); //Set the colour to purple
         }
 
@@ -60,7 +61,7 @@ public class Announce {
         // If it does alert the user, otherwise, mention everyone, then send the message and add reactions
         // Save the messageId and channel into the text file messageId1 too.
         if (command.equals("role_assigner")) {
-            if (!CommandManager.roleAnnounceMessageId.equals("")) {
+            if (!CommandManager.roleAnnounceMessageId.isEmpty()) {
                 e.reply("Hey, " + e.getUser().getAsMention() + "! This message already exists! Its ID is: " + CommandManager.roleAnnounceMessageId).setEphemeral(true).queue();
                 return;
             }
@@ -85,23 +86,26 @@ public class Announce {
 
     /** Makes an announcement to a specified channel with the pfp and user who sent said announcement.
      *  @param e - The SlashCommandInteractionEvent listener. Activates this function whenever it hears a slash command.
-     *  @param channel - The channel of the message to edit,
      *  @param messageId - the ID of the embed that we want to edit
      *  @param message - The message to edit into the embed.
      *  @param attachment - An image that will be put in the embedded message.
      */
-    public static void editAnnouncement(SlashCommandInteractionEvent e, GuildChannelUnion channel, String messageId, String message, Message.Attachment attachment){
+    public static void editAnnouncement(SlashCommandInteractionEvent e, String messageId, String message, Message.Attachment attachment){
+
+        String channelId = "";
 
         // Parse the message ID. Normally, IDs are in the form CHANNEL-MESSAGE, so we have to take out the CHANNEL part
         String[] tempArray = messageId.split("-");
-        if (tempArray.length > 1)
+        if (tempArray.length > 1) {
+            channelId = tempArray[0];
             messageId = tempArray[1];
+        }
 
         // Get the message and check if it exists
-        Message m = channel.asGuildMessageChannel().retrieveMessageById(messageId).complete();
+        Message m = Objects.requireNonNull(Objects.requireNonNull(e.getGuild()).getTextChannelById(channelId)).retrieveMessageById(messageId).complete();
         MessageEmbed me = m.getEmbeds().getFirst();
         if (me == null){
-            e.reply("Failed to find the message. Please make sure you got the correct ID.").setEphemeral(true).queue();;
+            e.reply("Failed to find the message. Please make sure you got the correct ID.").setEphemeral(true).queue();
             return;
         }
 
@@ -132,7 +136,7 @@ public class Announce {
         if (attachment != null) { eb.setImage(attachment.getUrl()); }
 
         // Edit the message by ID
-        channel.asGuildMessageChannel().editMessageEmbedsById(messageId, eb.build()).queue();
+        Objects.requireNonNull(e.getGuild().getTextChannelById(channelId)).editMessageEmbedsById(messageId, eb.build()).queue();
 
         eb.clear(); //Clear the message at the end for next time
         e.deferReply().queue(m2 -> m2.deleteOriginal().queue());
